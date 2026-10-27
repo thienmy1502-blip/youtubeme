@@ -1,6 +1,10 @@
 package com.example.ytmusic
 
+import android.annotation.SuppressLint
 import android.net.Uri
+import android.webkit.WebChromeClient
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -26,12 +30,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
-import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.AbstractYouTubePlayerListener
-import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTubePlayerView
 
 data class Track(val title: String, val url: String)
 
@@ -73,59 +73,58 @@ fun AppScreen(
     }
 }
 
+private const val YT_HOME = "https://m.youtube.com/"
+
+@SuppressLint("SetJavaScriptEnabled")
 @Composable
 private fun YouTubeTab() {
     var input by rememberSaveable { mutableStateOf("") }
-    var videoId by rememberSaveable { mutableStateOf<String?>(null) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var player by remember { mutableStateOf<YouTubePlayer?>(null) }
-    val lifecycleOwner = LocalLifecycleOwner.current
+    var target by rememberSaveable { mutableStateOf(YT_HOME) }
 
-    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 8.dp)) {
         OutlinedTextField(
             value = input,
             onValueChange = { input = it },
-            label = { Text("Link hoặc ID video YouTube") },
+            label = { Text("Dán link YouTube hoặc gõ từ khoá tìm kiếm") },
             singleLine = true,
             modifier = Modifier.fillMaxWidth()
         )
-        Button(onClick = {
-            val id = extractVideoId(input)
-            if (id == null) {
-                error = "Link không hợp lệ"
-            } else {
-                error = null
-                videoId = id
-                player?.loadVideo(id, 0f)
+        Button(
+            modifier = Modifier.padding(vertical = 8.dp),
+            onClick = {
+                val id = extractVideoId(input)
+                target = when {
+                    id != null -> "https://m.youtube.com/watch?v=$id"
+                    input.isNotBlank() -> "https://m.youtube.com/results?search_query=" + Uri.encode(input.trim())
+                    else -> YT_HOME
+                }
             }
-        }) { Text("Phát video") }
-
-        error?.let { Text(it, color = androidx.compose.material3.MaterialTheme.colorScheme.error) }
+        ) { Text("Phát / Tìm") }
 
         AndroidView(
-            modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f),
+            modifier = Modifier.fillMaxWidth().weight(1f),
             factory = { ctx ->
-                YouTubePlayerView(ctx).apply {
-                    lifecycleOwner.lifecycle.addObserver(this)
-                    addYouTubePlayerListener(object : AbstractYouTubePlayerListener() {
-                        override fun onReady(youTubePlayer: YouTubePlayer) {
-                            player = youTubePlayer
-                            videoId?.let { youTubePlayer.loadVideo(it, 0f) }
+                WebView(ctx).apply {
+                    settings.javaScriptEnabled = true
+                    settings.domStorageEnabled = true
+                    settings.mediaPlaybackRequiresUserGesture = false
+                    settings.userAgentString = settings.userAgentString.replace("; wv", "")
+                    webChromeClient = WebChromeClient()
+                    webViewClient = object : WebViewClient() {
+                        override fun shouldOverrideUrlLoading(view: WebView, request: android.webkit.WebResourceRequest): Boolean {
+                            // Chỉ mở link http(s) trong WebView, chặn intent:// mở app khác
+                            return !request.url.scheme.orEmpty().startsWith("http")
                         }
-                    })
+                    }
                 }
             },
-            onRelease = {
-                lifecycleOwner.lifecycle.removeObserver(it)
-                it.release()
-                player = null
-            }
-        )
-
-        Text(
-            "Lưu ý: trình phát YouTube chính thức sẽ dừng khi tắt màn hình. " +
-                "Muốn nghe nền, dùng tab \"Nghe nền\".",
-            style = androidx.compose.material3.MaterialTheme.typography.bodySmall
+            update = { wv ->
+                if (wv.tag != target) {
+                    wv.tag = target
+                    wv.loadUrl(target)
+                }
+            },
+            onRelease = { it.destroy() }
         )
     }
 }
