@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Nghe nền</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #eaf0ee;
+    --surface: #f7faf9;
+    --ink: #12302b;
+    --muted: #5b7570;
+    --line: #c9d8d4;
+    --accent: #0f766e;
+    --on-accent: #ffffff;
+    --err: #b3261e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0c1a18;
+      --surface: #142724;
+      --ink: #e3f0ec;
+      --muted: #8fb0a9;
+      --line: #25423d;
+      --accent: #5eead4;
+      --on-accent: #06211d;
+      --err: #ffb4ab;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.5;
+    padding: max(20px, env(safe-area-inset-top)) 20px max(32px, env(safe-area-inset-bottom));
+  }
+  main { max-width: 560px; margin: 0 auto; }
+  h1 { font-size: 2rem; font-weight: 800; letter-spacing: -0.02em; margin: 8px 0 4px; }
+  .lead { color: var(--muted); margin: 0 0 24px; font-size: .95rem; }
+
+  .player { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 22px 20px 18px; }
+  .now { font-size: 1.25rem; font-weight: 600; margin: 0 0 18px; min-height: 2.9em; overflow-wrap: anywhere; }
+  .now.idle { color: var(--muted); font-weight: 400; }
+  .seek { width: 100%; accent-color: var(--accent); margin: 0; }
+  .times { display: flex; justify-content: space-between; color: var(--muted); font-size: .8rem; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .controls { display: flex; align-items: center; justify-content: center; gap: 22px; margin-top: 14px; }
+  .controls button { border: 0; background: transparent; color: var(--ink); cursor: pointer; width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; }
+  .controls button svg { width: 26px; height: 26px; fill: currentColor; }
+  .controls .main { width: 72px; height: 72px; background: var(--accent); color: var(--on-accent); }
+  .controls .main svg { width: 32px; height: 32px; }
+  button:focus-visible, input:focus-visible, .item:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  h2 { font-size: 1.05rem; font-weight: 600; margin: 32px 0 10px; }
+  form { display: grid; gap: 10px; }
+  input[type=url], input[type=text] { width: 100%; font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .btn { font: inherit; font-weight: 600; border-radius: 12px; padding: 11px 18px; cursor: pointer; border: 1px solid var(--accent); background: var(--accent); color: var(--on-accent); }
+  .btn.ghost { background: transparent; color: var(--accent); }
+  .msg { min-height: 1.4em; font-size: .9rem; margin: 8px 0 0; color: var(--muted); }
+  .msg.err { color: var(--err); }
+
+  ul { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+  .item { display: flex; align-items: center; gap: 10px; padding: 12px 4px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .item .t { flex: 1; overflow-wrap: anywhere; }
+  .item.cur .t { color: var(--accent); font-weight: 600; }
+  .item .x { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 1.2rem; cursor: pointer; padding: 4px 10px; border-radius: 8px; }
+  .empty { color: var(--muted); padding: 16px 4px; }
+  .note { color: var(--muted); font-size: .85rem; margin-top: 28px; }
+
+  .tabs { display: flex; gap: 8px; margin: 0 0 20px; }
+  .tabs button { flex: 1; font: inherit; font-weight: 600; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: transparent; color: var(--muted); cursor: pointer; }
+  .tabs button[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  a.btn { display: inline-block; text-decoration: none; }
+  .frame { aspect-ratio: 16 / 9; background: #000; border-radius: 14px; overflow: hidden; margin-top: 14px; }
+  .frame iframe { width: 100%; height: 100%; border: 0; display: block; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Nghe nền</h1>
+  <p class="lead">Dán link file nhạc trực tiếp, thêm vào hàng đợi và nghe khi tắt màn hình.</p>
+
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t-audio" aria-selected="true" data-tab="audio">Nghe nền</button>
+    <button role="tab" id="t-yt" aria-selected="false" data-tab="yt">Xem YouTube</button>
+  </div>
+
+  <div id="tab-audio">
+  <section class="player" aria-label="Trình phát">
+    <p id="now" class="now idle">Chưa có bài nào. Thêm một bài ở bên dưới.</p>
+    <input id="seek" class="seek" type="range" min="0" max="0" value="0" step="1" aria-label="Tua bài">
+    <div class="times"><span id="cur">0:00</span><span id="dur">0:00</span></div>
+    <div class="controls">
+      <button id="prev" aria-label="Bài trước"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zM9.5 12 18 18V6z"/></svg></button>
+      <button id="toggle" class="main" aria-label="Phát"><svg id="ico" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>
+      <button id="next" aria-label="Bài sau"><svg viewBox="0 0 24 24"><path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z"/></svg></button>
+    </div>
+  </section>
+
+  <h2>Thêm bài</h2>
+  <form id="form">
+    <input id="url" type="url" placeholder="https://.../ten-bai.mp3" required autocomplete="off">
+    <input id="title" type="text" placeholder="Tên bài (tuỳ chọn)" autocomplete="off">
+    <div class="row">
+      <button class="btn" type="submit">Thêm vào hàng đợi</button>
+      <button class="btn ghost" type="button" id="clear">Xoá hết</button>
+    </div>
+  </form>
+  <p id="msg" class="msg" role="status"></p>
+
+  <h2>Hàng đợi</h2>
+  <ul id="list"></ul>
+
+  </div>
+
+  <div id="tab-yt" hidden>
+    <form id="ytform">
+      <input id="yturl" type="text" placeholder="Dán link YouTube (youtu.be/... hoặc youtube.com/watch?v=...)" required autocomplete="off">
+      <div class="row">
+        <button class="btn" type="submit">Phát video</button>
+        <a class="btn ghost" href="https://m.youtube.com" target="_blank" rel="noopener">Tìm trên YouTube</a>
+      </div>
+    </form>
+    <p id="ytmsg" class="msg" role="status"></p>
+    <div class="frame"><iframe id="ytframe" title="Video YouTube" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
+    <p class="note">Video YouTube sẽ dừng khi tắt màn hình, đây là quy định của YouTube. Muốn nghe tiếp khi tắt màn hình, hãy dùng app Android.</p>
+  </div>
+
+  <p class="note" id="audio-note">Trang web không lấy được âm thanh từ link YouTube (dùng app Android cho việc đó). Cần nghe nền ổn định, hãy mở trang này bằng Chrome và không dùng chế độ tiết kiệm pin.</p>
+</main>
+
+<audio id="audio" preload="none"></audio>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var audio = $('audio'), nowEl = $('now'), seek = $('seek'), ico = $('ico'), toggleBtn = $('toggle');
+  var queue = [], index = -1, KEY = 'nghe-nen-queue';
+  var PLAY = 'M8 5v14l11-7z', PAUSE = 'M6 5h4v14H6zM14 5h4v14h-4z';
+
+  try { queue = JSON.parse(localStorage.getItem(KEY) || '[]') || []; } catch (e) { queue = []; }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(queue)); } catch (e) {} }
+
+  function say(text, isErr) { var m = $('msg'); m.textContent = text; m.className = 'msg' + (isErr ? ' err' : ''); }
+  function fmt(s) { if (!isFinite(s)) return '0:00'; s = Math.floor(s); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+
+  function render() {
+    var ul = $('list'); ul.textContent = '';
+    if (!queue.length) { var li = document.createElement('li'); li.className = 'empty'; li.textContent = 'Hàng đợi trống.'; ul.appendChild(li); }
+    queue.forEach(function (t, i) {
+      var li = document.createElement('li');
+      li.className = 'item' + (i === index ? ' cur' : '');
+      li.tabIndex = 0;
+      var span = document.createElement('span'); span.className = 't'; span.textContent = (i === index ? '▶ ' : '') + t.title;
+      var x = document.createElement('button'); x.className = 'x'; x.textContent = '×'; x.setAttribute('aria-label', 'Xoá ' + t.title);
+      x.addEventListener('click', function (e) { e.stopPropagation(); remove(i); });
+      li.addEventListener('click', function () { load(i, true); });
+      li.addEventListener('keydown', function (e) { if (e.key === 'Enter') load(i, true); });
+      li.appendChild(span); li.appendChild(x); ul.appendChild(li);
+    });
+    var t = queue[index];
+    nowEl.textContent = t ? t.title : 'Chưa có bài nào. Thêm một bài ở bên dưới.';
+    nowEl.className = 'now' + (t ? '' : ' idle');
+  }
+
+  function setSession(t) {
+    if (!('mediaSession' in navigator) || !t) return;
+    try { navigator.mediaSession.metadata = new MediaMetadata({ title: t.title, artist: 'Nghe nền' }); } catch (e) {}
+  }
+
+  function load(i, autoplay) {
+    if (i < 0 || i >= queue.length) return;
+    index = i; audio.src = queue[i].url; render(); setSession(queue[i]); say('');
+    if (autoplay) audio.play().catch(function (e) { say('Không phát được: ' + (e && e.message ? e.message : 'lỗi không rõ'), true); });
+  }
+  function next() { if (index + 1 < queue.length) load(index + 1, true); }
+  function prev() { if (audio.currentTime > 3) { audio.currentTime = 0; } else if (index > 0) load(index - 1, true); }
+  function toggle() {
+    if (index < 0) { if (queue.length) load(0, true); return; }
+    if (audio.paused) audio.play().catch(function () {}); else audio.pause();
+  }
+  function remove(i) {
+    queue.splice(i, 1); save();
+    if (i < index) index--;
+    else if (i === index) { audio.pause(); audio.removeAttribute('src'); audio.load(); index = -1; }
+    render();
+  }
+
+  $('form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var url = $('url').value.trim(), title = $('title').value.trim();
+    if (/youtube\.com|youtu\.be/i.test(url)) { say('Link YouTube không phát được ở trang web này. Hãy dùng link file âm thanh trực tiếp (.mp3, .m4a...).', true); return; }
+    if (!title) { try { title = decodeURIComponent(url.split('?')[0].split('/').pop()) || ('Bài ' + (queue.length + 1)); } catch (x) { title = 'Bài ' + (queue.length + 1); } }
+    queue.push({ title: title, url: url }); save();
+    $('url').value = ''; $('title').value = '';
+    say('Đã thêm: ' + title);
+    if (index < 0) load(queue.length - 1, true); else render();
+  });
+  $('clear').addEventListener('click', function () {
+    audio.pause(); audio.removeAttribute('src'); audio.load(); queue = []; index = -1; save(); render(); say('');
+  });
+
+  $('prev').addEventListener('click', prev);
+  $('next').addEventListener('click', next);
+  toggleBtn.addEventListener('click', toggle);
+
+  seek.addEventListener('input', function () { if (isFinite(audio.duration)) audio.currentTime = Number(seek.value); });
+  audio.addEventListener('timeupdate', function () { seek.value = audio.currentTime; $('cur').textContent = fmt(audio.currentTime); });
+  audio.addEventListener('loadedmetadata', function () { seek.max = Math.floor(audio.duration) || 0; $('dur').textContent = fmt(audio.duration); });
+  audio.addEventListener('play', function () { ico.firstElementChild.setAttribute('d', PAUSE); toggleBtn.setAttribute('aria-label', 'Tạm dừng'); if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing'; });
+  audio.addEventListener('pause', function () { ico.firstElementChild.setAttribute('d', PLAY); toggleBtn.setAttribute('aria-label', 'Phát'); if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused'; });
+  audio.addEventListener('ended', next);
+  audio.addEventListener('error', function () { if (audio.getAttribute('src')) say('Không tải được bài này. Kiểm tra lại link (phải là file âm thanh trực tiếp).', true); });
+
+  if ('mediaSession' in navigator) {
+    var acts = { play: toggle, pause: toggle, previoustrack: prev, nexttrack: next };
+    Object.keys(acts).forEach(function (k) { try { navigator.mediaSession.setActionHandler(k, acts[k]); } catch (e) {} });
+    try { navigator.mediaSession.setActionHandler('seekto', function (d) { audio.currentTime = d.seekTime; }); } catch (e) {}
+  }
+
+  // ---- Tab Xem YouTube ----
+  var frame = $('ytframe');
+  function showTab(name) {
+    var yt = name === 'yt';
+    $('tab-audio').hidden = yt; $('tab-yt').hidden = !yt;
+    $('t-audio').setAttribute('aria-selected', String(!yt)); $('t-yt').setAttribute('aria-selected', String(yt));
+    if (!yt) frame.src = 'about:blank';
+    if (yt && location.protocol === 'file:') {
+      var m = $('ytmsg'); m.className = 'msg err';
+      m.textContent = 'Bạn đang mở trang từ file nên YouTube có thể báo lỗi 153. Hãy đưa trang lên GitHub Pages (https) rồi mở bằng đường link.';
+    }
+  }
+  document.querySelectorAll('.tabs button').forEach(function (b) {
+    b.addEventListener('click', function () { showTab(b.getAttribute('data-tab')); });
+  });
+  function ytId(s) {
+    s = s.trim();
+    if (/^[A-Za-z0-9_-]{11}$/.test(s)) return s;
+    var m = s.match(/(?:v=|youtu\.be\/|embed\/|shorts\/|live\/)([A-Za-z0-9_-]{11})/);
+    return m ? m[1] : null;
+  }
+  $('ytform').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var id = ytId($('yturl').value), m = $('ytmsg');
+    if (!id) { m.className = 'msg err'; m.textContent = 'Link YouTube không hợp lệ.'; return; }
+    audio.pause();
+    if (location.protocol !== 'file:') { m.className = 'msg'; m.textContent = ''; }
+    frame.src = 'https://www.youtube.com/embed/' + id + '?playsinline=1&rel=0';
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
